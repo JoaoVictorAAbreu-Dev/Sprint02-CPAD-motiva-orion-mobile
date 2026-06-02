@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 
@@ -25,11 +25,25 @@ const toneByOccurrence: Record<'Aberta' | 'Em atendimento' | 'Resolvida', 'warni
   Resolvida: 'success'
 };
 
+const toneColors = {
+  primary: palette.primary,
+  success: palette.success,
+  warning: palette.warning,
+  danger: palette.danger
+} as const;
+
 const formatDate = (value: string) =>
   new Date(value).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
 
+const formatDateTime = (value: string) =>
+  new Date(value).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+
+type TimelineItem =
+  | { id: string; type: 'inspecao'; date: string; title: string; subtitle: string; tone: 'primary' | 'success' | 'warning' }
+  | { id: string; type: 'ocorrencia'; date: string; title: string; subtitle: string; tone: 'primary' | 'success' | 'warning' };
+
 export function DetalheTrechoScreen({ route, navigation }: Props) {
-  const { getTrechoById, getOcorrenciasByTrechoId, inspecoes } = useAppContext();
+  const { getTrechoById, getOcorrenciasByTrechoId, getInspecoesByTrechoId } = useAppContext();
   const trecho = getTrechoById(route.params.trechoId);
 
   if (!trecho) {
@@ -45,12 +59,34 @@ export function DetalheTrechoScreen({ route, navigation }: Props) {
   }
 
   const ocorrencias = getOcorrenciasByTrechoId(trecho.id);
-  const trechosInspecoes = inspecoes.filter((inspecao) => inspecao.trechoId === trecho.id);
-  const ultimaInspecao = trechosInspecoes[0];
+  const inspecoes = getInspecoesByTrechoId(trecho.id);
+  const ultimaInspecao = inspecoes[0];
+
+  const timeline = useMemo<TimelineItem[]>(() => {
+    const inspectionItems: TimelineItem[] = inspecoes.map((item) => ({
+      id: item.id,
+      type: 'inspecao' as const,
+      date: item.data,
+      title: `Inspeção - ${item.responsavel}`,
+      subtitle: `${item.risco} • ${item.observacao}`,
+      tone: item.risco === 'Alto' ? 'warning' : item.risco === 'Médio' ? 'primary' : 'success'
+    }));
+
+    const occurrenceItems: TimelineItem[] = ocorrencias.map((item) => ({
+      id: item.id,
+      type: 'ocorrencia' as const,
+      date: item.data,
+      title: item.tipo,
+      subtitle: item.descricao,
+      tone: toneByOccurrence[item.status]
+    }));
+
+    return [...inspectionItems, ...occurrenceItems].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  }, [inspecoes, ocorrencias]);
 
   return (
     <Screen>
-      <SectionHeader title="Detalhes do trecho" subtitle="Visão operacional com indicadores, inspeções e ocorrências." />
+      <SectionHeader title="Detalhes do trecho" subtitle="Visão operacional com indicadores, histórico e ocorrências." />
 
       <Card
         title={trecho.nome}
@@ -63,14 +99,14 @@ export function DetalheTrechoScreen({ route, navigation }: Props) {
         <View style={styles.heroInfo}>
           <StatusBadge label={trecho.status} tone={toneByStatus[trecho.status]} />
           <Text style={styles.meta}>Vegetação: {trecho.nivelVegetacao}</Text>
-          <Text style={styles.meta}>Última intervenção: {trecho.ultimaIntervencao}</Text>
+          <Text style={styles.meta}>Última intervenção: {formatDate(trecho.ultimaIntervencao)}</Text>
         </View>
 
         <View style={styles.metricsGrid}>
           <StatChip label="Ocorrências" value={ocorrencias.length} accent={palette.warning} />
-          <StatChip label="Inspeções" value={trechosInspecoes.length} accent={palette.primary} />
-          <StatChip label="Faixa" value={`km ${trecho.kmInicial.toFixed(1)}`} accent={palette.success} />
-          <StatChip label="Até" value={`km ${trecho.kmFinal.toFixed(1)}`} accent={palette.danger} />
+          <StatChip label="Inspeções" value={inspecoes.length} accent={palette.primary} />
+          <StatChip label="Faixa inicial" value={`km ${trecho.kmInicial.toFixed(1)}`} accent={palette.success} />
+          <StatChip label="Faixa final" value={`km ${trecho.kmFinal.toFixed(1)}`} accent={palette.danger} />
         </View>
       </Card>
 
@@ -90,7 +126,7 @@ export function DetalheTrechoScreen({ route, navigation }: Props) {
           <View style={styles.detailStack}>
             <Text style={styles.detailTitle}>{ultimaInspecao.responsavel}</Text>
             <Text style={styles.detailText}>Risco: {ultimaInspecao.risco}</Text>
-            <Text style={styles.detailText}>Data: {formatDate(ultimaInspecao.data)}</Text>
+            <Text style={styles.detailText}>Data: {formatDateTime(ultimaInspecao.data)}</Text>
             <Text style={styles.detailText}>{ultimaInspecao.observacao}</Text>
           </View>
         ) : (
@@ -98,23 +134,26 @@ export function DetalheTrechoScreen({ route, navigation }: Props) {
         )}
       </Card>
 
-      <Card title="Ocorrências relacionadas" subtitle="Situações vinculadas à vegetação deste trecho" accentColor={palette.warning}>
+      <Card title="Linha do tempo" subtitle="Inspeções e ocorrências em ordem cronológica" accentColor={palette.warning}>
         <FlatList
-          data={ocorrencias}
+          data={timeline}
           keyExtractor={(item) => item.id}
           scrollEnabled={false}
           ItemSeparatorComponent={() => <View style={styles.separator} />}
           renderItem={({ item }) => (
-            <View style={styles.occurrenceItem}>
-              <View style={styles.occurrenceHeader}>
-                <Text style={styles.occurrenceType}>{item.tipo}</Text>
-                <StatusBadge label={item.status} tone={toneByOccurrence[item.status]} />
+              <View style={styles.timelineItem}>
+              <View style={[styles.timelineDot, { backgroundColor: toneColors[item.tone] }]} />
+              <View style={styles.timelineContent}>
+                <View style={styles.timelineHeader}>
+                  <Text style={styles.timelineTitle}>{item.title}</Text>
+                  <StatusBadge label={item.type === 'inspecao' ? 'Inspeção' : 'Ocorrência'} tone={item.tone} />
+                </View>
+                <Text style={styles.timelineText}>{item.subtitle}</Text>
+                <Text style={styles.timelineMeta}>{formatDateTime(item.date)}</Text>
               </View>
-              <Text style={styles.occurrenceText}>{item.descricao}</Text>
-              <Text style={styles.occurrenceMeta}>{formatDate(item.data)}</Text>
             </View>
           )}
-          ListEmptyComponent={<Text style={styles.detailText}>Nenhuma ocorrência vinculada a este trecho.</Text>}
+          ListEmptyComponent={<Text style={styles.detailText}>Nenhum histórico disponível para este trecho.</Text>}
         />
       </Card>
     </Screen>
@@ -176,25 +215,36 @@ const styles = StyleSheet.create({
   separator: {
     height: 12
   },
-  occurrenceItem: {
-    gap: 8
-  },
-  occurrenceHeader: {
+  timelineItem: {
     flexDirection: 'row',
-    alignItems: 'center',
+    gap: 12
+  },
+  timelineDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 999,
+    marginTop: 5
+  },
+  timelineContent: {
+    flex: 1,
+    gap: 6
+  },
+  timelineHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
     justifyContent: 'space-between',
     gap: 10
   },
-  occurrenceType: {
+  timelineTitle: {
     flex: 1,
     color: palette.text,
     fontWeight: '800'
   },
-  occurrenceText: {
+  timelineText: {
     color: palette.textMuted,
     lineHeight: 20
   },
-  occurrenceMeta: {
+  timelineMeta: {
     color: palette.textMuted,
     fontSize: 12
   }

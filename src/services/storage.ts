@@ -6,6 +6,8 @@ export const storageKeys = {
   appState: `${prefix}:app-state`
 };
 
+export const storageVersion = 1;
+
 export async function readStorage<T>(key: string): Promise<T | null> {
   const value = await AsyncStorage.getItem(key);
   return value ? (JSON.parse(value) as T) : null;

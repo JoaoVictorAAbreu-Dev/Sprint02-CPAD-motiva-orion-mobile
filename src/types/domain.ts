@@ -36,6 +36,8 @@ export type Inspecao = {
   risco: 'Baixo' | 'Médio' | 'Alto';
   acaoRecomendada: string;
   fotoUri?: string;
+  latitude?: number;
+  longitude?: number;
 };
 
 export type Ocorrencia = {
@@ -48,5 +50,8 @@ export type Ocorrencia = {
 };
 
 export type AppState = {
+  version: number;
+  trechos: Trecho[];
+  ocorrencias: Ocorrencia[];
   inspecoes: Inspecao[];
 };

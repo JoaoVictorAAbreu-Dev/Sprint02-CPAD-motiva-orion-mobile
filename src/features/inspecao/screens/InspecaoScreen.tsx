@@ -1,6 +1,16 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import {
+  Alert,
+  Image,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View
+} from 'react-native';
 import { CameraCapturedPicture, CameraView, useCameraPermissions } from 'expo-camera';
+import * as Location from 'expo-location';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import { Card } from '../../../components/Card';
@@ -17,7 +27,7 @@ type Risco = 'Baixo' | 'Médio' | 'Alto';
 
 export function InspecaoScreen({ route, navigation }: Props) {
   const { trechos, getTrechoById, registrarInspecao } = useAppContext();
-  const [permission, requestPermission] = useCameraPermissions();
+  const [cameraPermission, requestCameraPermission] = useCameraPermissions();
   const cameraRef = useRef<CameraView>(null);
 
   const trechoSelecionado = useMemo(
@@ -33,6 +43,9 @@ export function InspecaoScreen({ route, navigation }: Props) {
   const [foto, setFoto] = useState<CameraCapturedPicture | null>(null);
   const [cameraReady, setCameraReady] = useState(false);
   const [capturing, setCapturing] = useState(false);
+  const [locationPermission, setLocationPermission] = useState<Location.LocationPermissionResponse | null>(null);
+  const [coordinates, setCoordinates] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [capturingLocation, setCapturingLocation] = useState(false);
 
   useEffect(() => {
     if (trechoSelecionado?.id) {
@@ -41,8 +54,15 @@ export function InspecaoScreen({ route, navigation }: Props) {
   }, [trechoSelecionado?.id]);
 
   useEffect(() => {
-    void requestPermission();
-  }, [requestPermission]);
+    void requestCameraPermission();
+  }, [requestCameraPermission]);
+
+  useEffect(() => {
+    (async () => {
+      const permission = await Location.getForegroundPermissionsAsync();
+      setLocationPermission(permission);
+    })();
+  }, []);
 
   const canSubmit = trechoId && responsavel.trim() && observacao.trim() && acaoRecomendada.trim() && foto;
 
@@ -57,6 +77,32 @@ export function InspecaoScreen({ route, navigation }: Props) {
       Alert.alert('Erro na câmera', 'Não foi possível capturar a foto. Tente novamente.');
     } finally {
       setCapturing(false);
+    }
+  };
+
+  const captureLocation = async () => {
+    try {
+      setCapturingLocation(true);
+      const currentPermission = await Location.requestForegroundPermissionsAsync();
+      setLocationPermission(currentPermission);
+
+      if (!currentPermission.granted) {
+        Alert.alert('Permissão negada', 'É necessário permitir o acesso à localização para registrar as coordenadas.');
+        return;
+      }
+
+      const currentPosition = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.High
+      });
+
+      setCoordinates({
+        latitude: currentPosition.coords.latitude,
+        longitude: currentPosition.coords.longitude
+      });
+    } catch {
+      Alert.alert('Erro de localização', 'Não foi possível capturar a posição atual.');
+    } finally {
+      setCapturingLocation(false);
     }
   };
 
@@ -75,7 +121,9 @@ export function InspecaoScreen({ route, navigation }: Props) {
       observacao: observacao.trim(),
       risco,
       acaoRecomendada: acaoRecomendada.trim(),
-      fotoUri: foto?.uri
+      fotoUri: foto?.uri,
+      latitude: coordinates?.latitude,
+      longitude: coordinates?.longitude
     });
 
     Alert.alert('Inspeção registrada', 'Registro salvo com sucesso.');
@@ -115,7 +163,7 @@ export function InspecaoScreen({ route, navigation }: Props) {
         ) : null}
 
         <Card title="Evidência fotográfica" subtitle="Captura obrigatória para concluir a inspeção" accentColor={palette.success}>
-          {permission?.granted ? (
+          {cameraPermission?.granted ? (
             <View style={styles.cameraBlock}>
               <View style={styles.cameraFrame}>
                 {foto ? (
@@ -146,11 +194,27 @@ export function InspecaoScreen({ route, navigation }: Props) {
               <Text style={styles.permissionText}>
                 A câmera precisa de permissão para registrar a inspeção com imagem.
               </Text>
-              <Pressable style={styles.primaryButton} onPress={requestPermission}>
+              <Pressable style={styles.primaryButton} onPress={requestCameraPermission}>
                 <Text style={styles.primaryButtonText}>Conceder permissão</Text>
               </Pressable>
             </View>
           )}
+        </Card>
+
+        <Card title="Geolocalização" subtitle="Captura da posição atual do ponto de inspeção" accentColor={palette.primary}>
+          <View style={styles.locationBlock}>
+            <Text style={styles.meta}>
+              {coordinates
+                ? `Latitude: ${coordinates.latitude.toFixed(6)} | Longitude: ${coordinates.longitude.toFixed(6)}`
+                : 'Nenhuma coordenada registrada ainda.'}
+            </Text>
+            <Text style={styles.meta}>Permissão: {locationPermission?.granted ? 'Concedida' : 'Pendente'}</Text>
+            <Pressable style={styles.secondaryButton} onPress={captureLocation}>
+              <Text style={styles.secondaryButtonText}>
+                {capturingLocation ? 'Capturando localização...' : 'Capturar localização'}
+              </Text>
+            </Pressable>
+          </View>
         </Card>
 
         <Card title="Dados da inspeção" subtitle="Preencha as informações de campo" accentColor={palette.primary}>
@@ -293,6 +357,9 @@ const styles = StyleSheet.create({
   permissionText: {
     color: palette.textMuted,
     lineHeight: 20
+  },
+  locationBlock: {
+    gap: 12
   },
   field: {
     marginBottom: 14

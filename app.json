@@ -12,6 +12,12 @@
         {
           "cameraPermission": "Allow camera access to register inspections."
         }
+      ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Allow location access to register field inspections."
+        }
       ]
     ],
     "splash": {
