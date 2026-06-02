@@ -1,0 +1,16 @@
+{
+  "expo": {
+    "name": "Motiva ORION Mobile",
+    "slug": "motiva-orion-mobile",
+    "scheme": "motivaorion",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "backgroundColor": "#0F172A"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ]
+  }
+}

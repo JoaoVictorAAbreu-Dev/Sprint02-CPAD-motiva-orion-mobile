@@ -1,0 +1,8 @@
+node_modules
+.expo
+.expo-shared
+dist
+web-build
+coverage
+.DS_Store
+*.log
