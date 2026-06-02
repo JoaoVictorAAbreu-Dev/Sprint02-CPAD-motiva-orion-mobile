@@ -1,15 +1,17 @@
 import React from 'react';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets, SafeAreaView } from 'react-native-safe-area-context';
 import { View, StyleSheet } from 'react-native';
 
 import { palette } from '../theme/palette';
 
 export function Screen({ children }: { children: React.ReactNode }) {
+  const insets = useSafeAreaInsets();
+
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.bgGlowTop} />
       <View style={styles.bgGlowBottom} />
-      <View style={styles.content}>{children}</View>
+      <View style={[styles.content, { paddingBottom: 16 + insets.bottom }]}>{children}</View>
     </SafeAreaView>
   );
 }

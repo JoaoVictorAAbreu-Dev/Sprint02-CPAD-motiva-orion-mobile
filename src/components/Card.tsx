@@ -10,12 +10,29 @@ type Props = {
   accentColor?: string;
   children?: React.ReactNode;
   onPress?: () => void;
+  accessibilityLabel?: string;
+  accessibilityHint?: string;
 };
 
-export function Card({ title, subtitle, eyebrow, accentColor = palette.primary, children, onPress }: Props) {
+export function Card({
+  title,
+  subtitle,
+  eyebrow,
+  accentColor = palette.primary,
+  children,
+  onPress,
+  accessibilityLabel,
+  accessibilityHint
+}: Props) {
   if (onPress) {
     return (
-      <Pressable style={({ pressed }) => [styles.card, pressed ? styles.pressed : null]} onPress={onPress}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={accessibilityLabel ?? title}
+        accessibilityHint={accessibilityHint}
+        style={({ pressed }) => [styles.card, pressed ? styles.pressed : null]}
+        onPress={onPress}
+      >
         <View style={[styles.accentBar, { backgroundColor: accentColor }]} />
         {eyebrow ? <Text style={styles.eyebrow}>{eyebrow}</Text> : null}
         <Text style={styles.title}>{title}</Text>

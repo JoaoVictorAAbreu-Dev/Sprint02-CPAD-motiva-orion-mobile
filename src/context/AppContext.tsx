@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 
 import { ocorrenciasMock } from '../data/ocorrenciasMock';
 import { inspecoesMock } from '../data/inspecoesMock';
@@ -11,6 +11,7 @@ type AppContextValue = {
   ocorrencias: Ocorrencia[];
   inspecoes: Inspecao[];
   loading: boolean;
+  reloadAppState: () => Promise<void>;
   registrarInspecao: (input: Omit<Inspecao, 'id' | 'data'>) => Promise<void>;
   getTrechoById: (id: string) => Trecho | undefined;
   getOcorrenciasByTrechoId: (trechoId: string) => Ocorrencia[];
@@ -69,18 +70,26 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
   const snapshotRef = useRef<AppState>(initialState);
 
+  const applyState = useCallback((nextState: AppState) => {
+    snapshotRef.current = nextState;
+    setTrechos(nextState.trechos);
+    setOcorrencias(nextState.ocorrencias);
+    setInspecoes(nextState.inspecoes);
+  }, []);
+
+  const reloadAppState = useCallback(async () => {
+    const stored = await readStorage<AppState>(storageKeys.appState);
+    applyState(mergeState(stored));
+  }, [applyState]);
+
   useEffect(() => {
     let mounted = true;
 
     (async () => {
       try {
         const stored = await readStorage<AppState>(storageKeys.appState);
-        const nextState = mergeState(stored);
         if (mounted) {
-          snapshotRef.current = nextState;
-          setTrechos(nextState.trechos);
-          setOcorrencias(nextState.ocorrencias);
-          setInspecoes(nextState.inspecoes);
+          applyState(mergeState(stored));
         }
       } finally {
         if (mounted) {
@@ -92,13 +101,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [applyState]);
 
   const persistState = async (nextState: AppState) => {
-    snapshotRef.current = nextState;
-    setTrechos(nextState.trechos);
-    setOcorrencias(nextState.ocorrencias);
-    setInspecoes(nextState.inspecoes);
+    applyState(nextState);
     await writeStorage(storageKeys.appState, nextState);
   };
 
@@ -128,12 +134,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       ocorrencias,
       inspecoes,
       loading,
+      reloadAppState,
       registrarInspecao,
       getTrechoById: (id) => trechos.find((trecho) => trecho.id === id),
       getOcorrenciasByTrechoId: (trechoId) => ocorrencias.filter((ocorrencia) => ocorrencia.trechoId === trechoId),
       getInspecoesByTrechoId: (trechoId) => inspecoes.filter((inspecao) => inspecao.trechoId === trechoId)
     }),
-    [inspecoes, loading, ocorrencias, trechos]
+    [inspecoes, loading, ocorrencias, reloadAppState, trechos]
   );
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

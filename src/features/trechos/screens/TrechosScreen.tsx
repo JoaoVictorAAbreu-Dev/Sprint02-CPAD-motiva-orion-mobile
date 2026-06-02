@@ -1,10 +1,13 @@
 import React, { useMemo, useState } from 'react';
-import { FlatList, Text, View, StyleSheet, Pressable, TextInput } from 'react-native';
+import { FlatList, Pressable, RefreshControl, StyleSheet, Text, TextInput, View } from 'react-native';
 import { CompositeScreenProps } from '@react-navigation/native';
 import { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 
+import { AppButton } from '../../../components/AppButton';
 import { Card } from '../../../components/Card';
+import { EmptyState } from '../../../components/EmptyState';
+import { LoadingState } from '../../../components/LoadingState';
 import { Screen } from '../../../components/Screen';
 import { SectionHeader } from '../../../components/SectionHeader';
 import { StatusBadge } from '../../../components/StatusBadge';
@@ -27,11 +30,12 @@ const priorities = ['Todas', 'Baixa', 'Média', 'Alta'] as const;
 const statuses = ['Todas', 'Normal', 'Atenção', 'Crítico'] as const;
 
 export function TrechosScreen({ navigation }: Props) {
-  const { trechos, ocorrencias } = useAppContext();
+  const { trechos, ocorrencias, loading, reloadAppState } = useAppContext();
   const [query, setQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<(typeof statuses)[number]>('Todas');
   const [priorityFilter, setPriorityFilter] = useState<(typeof priorities)[number]>('Todas');
   const [rodoviaFilter, setRodoviaFilter] = useState('Todas');
+  const [refreshing, setRefreshing] = useState(false);
 
   const rodovias = useMemo(() => ['Todas', ...Array.from(new Set(trechos.map((trecho) => trecho.rodovia)))], [trechos]);
 
@@ -54,63 +58,103 @@ export function TrechosScreen({ navigation }: Props) {
     });
   }, [priorityFilter, query, rodoviaFilter, statusFilter, trechos]);
 
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    try {
+      await reloadAppState();
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <Screen>
+        <LoadingState label="Carregando trechos monitorados..." />
+      </Screen>
+    );
+  }
+
   return (
     <Screen>
-      <SectionHeader
-        title="Trechos"
-        subtitle="Selecione uma faixa da rodovia para ver detalhes, ocorrências e iniciar inspeção."
-      />
-
-      <View style={styles.summaryBar}>
-        <StatusBadge label={`${trechos.length} trechos monitorados`} tone="primary" />
-        <StatusBadge label={`${ocorrencias.length} ocorrências`} tone="warning" />
-      </View>
-
-      <TextInput
-        value={query}
-        onChangeText={setQuery}
-        placeholder="Buscar por ID, km, rodovia ou nome"
-        placeholderTextColor={palette.textMuted}
-        style={styles.search}
-      />
-
-      <View style={styles.filtersBlock}>
-        <Text style={styles.filterLabel}>Status</Text>
-        <View style={styles.chipsRow}>
-          {statuses.map((item) => (
-            <FilterChip key={item} label={item} active={statusFilter === item} onPress={() => setStatusFilter(item)} />
-          ))}
-        </View>
-
-        <Text style={styles.filterLabel}>Prioridade</Text>
-        <View style={styles.chipsRow}>
-          {priorities.map((item) => (
-            <FilterChip
-              key={item}
-              label={item}
-              active={priorityFilter === item}
-              onPress={() => setPriorityFilter(item)}
-            />
-          ))}
-        </View>
-
-        <Text style={styles.filterLabel}>Rodovia</Text>
-        <View style={styles.chipsRow}>
-          {rodovias.map((item) => (
-            <FilterChip
-              key={item}
-              label={item}
-              active={rodoviaFilter === item}
-              onPress={() => setRodoviaFilter(item)}
-            />
-          ))}
-        </View>
-      </View>
-
       <FlatList
         data={filteredTrechos}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.listContent}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={palette.primary} />}
+        ListHeaderComponent={
+          <View style={styles.headerBlock}>
+            <SectionHeader
+              title="Trechos"
+              subtitle="Selecione uma faixa da rodovia para ver detalhes, ocorrências e iniciar inspeção."
+            />
+
+            <View style={styles.summaryBar}>
+              <StatusBadge label={`${trechos.length} trechos monitorados`} tone="primary" />
+              <StatusBadge label={`${ocorrencias.length} ocorrências`} tone="warning" />
+            </View>
+
+            <TextInput
+              value={query}
+              onChangeText={setQuery}
+              placeholder="Buscar por ID, km, rodovia ou nome"
+              placeholderTextColor={palette.textMuted}
+              style={styles.search}
+              accessibilityLabel="Buscar trecho"
+            />
+
+            <View style={styles.filtersBlock}>
+              <Text style={styles.filterLabel}>Status</Text>
+              <View style={styles.chipsRow}>
+                {statuses.map((item) => (
+                  <FilterChip
+                    key={item}
+                    label={item}
+                    active={statusFilter === item}
+                    onPress={() => setStatusFilter(item)}
+                  />
+                ))}
+              </View>
+
+              <Text style={styles.filterLabel}>Prioridade</Text>
+              <View style={styles.chipsRow}>
+                {priorities.map((item) => (
+                  <FilterChip
+                    key={item}
+                    label={item}
+                    active={priorityFilter === item}
+                    onPress={() => setPriorityFilter(item)}
+                  />
+                ))}
+              </View>
+
+              <Text style={styles.filterLabel}>Rodovia</Text>
+              <View style={styles.chipsRow}>
+                {rodovias.map((item) => (
+                  <FilterChip
+                    key={item}
+                    label={item}
+                    active={rodoviaFilter === item}
+                    onPress={() => setRodoviaFilter(item)}
+                  />
+                ))}
+              </View>
+            </View>
+          </View>
+        }
+        ListEmptyComponent={
+          <EmptyState
+            title="Nenhum trecho encontrado"
+            description="Ajuste os filtros ou a busca para localizar outro trecho."
+            actionLabel="Limpar filtros"
+            onAction={() => {
+              setQuery('');
+              setStatusFilter('Todas');
+              setPriorityFilter('Todas');
+              setRodoviaFilter('Todas');
+            }}
+          />
+        }
         renderItem={({ item }) => {
           const trechoOcorrencias = ocorrencias.filter((ocorrencia) => ocorrencia.trechoId === item.id);
 
@@ -120,13 +164,10 @@ export function TrechosScreen({ navigation }: Props) {
               subtitle={`${item.rodovia} • km ${item.km.toFixed(1)} | prioridade ${item.prioridade}`}
               eyebrow={item.id.toUpperCase()}
               accentColor={
-                item.status === 'Normal'
-                  ? palette.success
-                  : item.status === 'Atenção'
-                    ? palette.warning
-                    : palette.danger
+                item.status === 'Normal' ? palette.success : item.status === 'Atenção' ? palette.warning : palette.danger
               }
               onPress={() => navigation.navigate('DetalheTrecho', { trechoId: item.id })}
+              accessibilityHint="Abre o detalhe operacional do trecho."
             >
               <View style={styles.metaRow}>
                 <StatusBadge label={item.status} tone={statusTone[item.status]} />
@@ -135,15 +176,15 @@ export function TrechosScreen({ navigation }: Props) {
                 <Text style={styles.meta}>{trechoOcorrencias.length} ocorrências associadas</Text>
               </View>
 
-              <Pressable style={styles.button} onPress={() => navigation.navigate('Inspecao', { trechoId: item.id })}>
-                <Text style={styles.buttonText}>Iniciar inspeção</Text>
-              </Pressable>
+              <AppButton
+                label="Iniciar inspeção"
+                variant="secondary"
+                onPress={() => navigation.navigate('Inspecao', { trechoId: item.id })}
+                accessibilityHint="Abre o formulário de inspeção com este trecho selecionado."
+              />
             </Card>
           );
         }}
-        ListEmptyComponent={
-          <Card title="Nenhum trecho encontrado" subtitle="Ajuste os filtros ou a busca para localizar outro trecho." />
-        }
       />
     </Screen>
   );
@@ -159,13 +200,26 @@ function FilterChip({
   onPress: () => void;
 }) {
   return (
-    <Pressable style={[styles.chip, active && styles.chipActive]} onPress={onPress}>
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`Filtrar por ${label}`}
+      accessibilityState={{ selected: active }}
+      style={[styles.chip, active && styles.chipActive]}
+      onPress={onPress}
+    >
       <Text style={[styles.chipText, active && styles.chipTextActive]}>{label}</Text>
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
+  listContent: {
+    gap: 12,
+    paddingBottom: 24
+  },
+  headerBlock: {
+    gap: 12
+  },
   summaryBar: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -215,9 +269,6 @@ const styles = StyleSheet.create({
   chipTextActive: {
     color: palette.text
   },
-  listContent: {
-    paddingBottom: 24
-  },
   metaRow: {
     gap: 8,
     marginBottom: 14
@@ -225,17 +276,5 @@ const styles = StyleSheet.create({
   meta: {
     color: palette.textMuted,
     lineHeight: 20
-  },
-  button: {
-    backgroundColor: palette.surfaceElevated,
-    paddingVertical: 13,
-    alignItems: 'center',
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: palette.border
-  },
-  buttonText: {
-    color: palette.text,
-    fontWeight: '800'
   }
 });

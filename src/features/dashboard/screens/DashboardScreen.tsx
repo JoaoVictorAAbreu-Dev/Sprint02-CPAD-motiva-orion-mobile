@@ -1,15 +1,18 @@
-import React from 'react';
-import { View, Text, StyleSheet, Pressable } from 'react-native';
+import React, { useMemo, useState } from 'react';
+import { RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { CompositeScreenProps } from '@react-navigation/native';
 import { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 
+import { AppButton } from '../../../components/AppButton';
 import { Card } from '../../../components/Card';
+import { LoadingState } from '../../../components/LoadingState';
 import { Screen } from '../../../components/Screen';
 import { SectionHeader } from '../../../components/SectionHeader';
 import { StatChip } from '../../../components/StatChip';
 import { StatusBadge } from '../../../components/StatusBadge';
 import { useAppContext } from '../../../context/AppContext';
+import { getOperationalRecommendations } from '../../../services/operationalPriority';
 import { MainTabParamList, RootStackParamList } from '../../../types/navigation';
 import { palette } from '../../../theme/palette';
 
@@ -29,7 +32,29 @@ const formatDateTime = (value?: string) => {
 };
 
 export function DashboardScreen({ navigation }: Props) {
-  const { trechos, inspecoes, loading } = useAppContext();
+  const { trechos, ocorrencias, inspecoes, loading, reloadAppState } = useAppContext();
+  const [refreshing, setRefreshing] = useState(false);
+  const recommendations = useMemo(
+    () => getOperationalRecommendations(trechos, ocorrencias, inspecoes).slice(0, 3),
+    [inspecoes, ocorrencias, trechos]
+  );
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    try {
+      await reloadAppState();
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <Screen>
+        <LoadingState label="Carregando painel operacional..." />
+      </Screen>
+    );
+  }
 
   const normal = trechos.filter((trecho) => trecho.status === 'Normal').length;
   const atencao = trechos.filter((trecho) => trecho.status === 'Atenção').length;
@@ -39,64 +64,107 @@ export function DashboardScreen({ navigation }: Props) {
 
   return (
     <Screen>
-      <View style={styles.hero}>
-        <View style={styles.heroTop}>
-          <View style={styles.brandMark} />
-          <StatusBadge label="Operação de campo" tone="primary" />
-        </View>
-        <Text style={styles.kicker}>CCR Motiva</Text>
-        <Text style={styles.title}>Motiva ORION Mobile</Text>
-        <Text style={styles.description}>
-          Gestão de inspeções, vegetação rodoviária e ocorrências em campo com visão executiva e operação rápida.
-        </Text>
-      </View>
-
-      <Card title="Resumo operacional" subtitle="Visão consolidada dos trechos monitorados" accentColor={palette.primary}>
-        <View style={styles.metricsGrid}>
-          <StatChip label="Trechos" value={trechos.length} accent={palette.primary} />
-          <StatChip label="Inspeções" value={loading ? '...' : inspecoes.length} accent={palette.success} />
-          <StatChip label="Pendências" value={totalPendencias} accent={palette.warning} />
-          <StatChip label="Críticos" value={critico} accent={palette.danger} />
-        </View>
-      </Card>
-
-      <Card title="Status da malha" subtitle="Distribuição por condição operacional" accentColor={palette.success}>
-        <View style={styles.statusRow}>
-          <StatusBadge label={`${normal} normais`} tone="success" />
-          <StatusBadge label={`${atencao} em atenção`} tone="warning" />
-          <StatusBadge label={`${critico} críticos`} tone="danger" />
-        </View>
-      </Card>
-
-      <SectionHeader title="Acesso rápido" subtitle="Rotas principais para equipe de campo" />
-      <View style={styles.quickActions}>
-        <Pressable style={styles.primaryAction} onPress={() => navigation.navigate('Trechos')}>
-          <Text style={styles.primaryActionTitle}>Abrir trechos</Text>
-          <Text style={styles.primaryActionText}>Selecionar faixa, ver ocorrências e iniciar inspeção.</Text>
-        </Pressable>
-        <Pressable style={styles.secondaryAction} onPress={() => navigation.navigate('Inspecao')}>
-          <Text style={styles.secondaryActionTitle}>Nova inspeção</Text>
-          <Text style={styles.secondaryActionText}>Registrar observação e foto diretamente em campo.</Text>
-        </Pressable>
-      </View>
-
-      <Card title="Última atividade" subtitle="Registro mais recente sincronizado" accentColor={palette.primary}>
-        {lastInspection ? (
-          <View style={styles.activityBlock}>
-            <Text style={styles.activityTitle}>{lastInspection.responsavel}</Text>
-            <Text style={styles.activityText}>Trecho: {lastInspection.trechoId}</Text>
-            <Text style={styles.activityText}>Risco: {lastInspection.risco}</Text>
-            <Text style={styles.activityText}>Data: {formatDateTime(lastInspection.data)}</Text>
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={palette.primary} />}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.hero}>
+          <View style={styles.heroTop}>
+            <View style={styles.brandMark} />
+            <StatusBadge label="Operação de campo" tone="primary" />
           </View>
-        ) : (
-          <Text style={styles.activityText}>Nenhuma inspeção registrada ainda.</Text>
-        )}
-      </Card>
+          <Text style={styles.kicker}>CCR Motiva</Text>
+          <Text style={styles.title}>Motiva ORION Mobile</Text>
+          <Text style={styles.description}>
+            Gestão operacional da vegetação rodoviária com foco em inspeções, priorização de trechos e resposta rápida em
+            campo.
+          </Text>
+        </View>
+
+        <Card title="Resumo operacional" subtitle="Visão consolidada dos trechos monitorados" accentColor={palette.primary}>
+          <View style={styles.metricsGrid}>
+            <StatChip label="Trechos" value={trechos.length} accent={palette.primary} />
+            <StatChip label="Inspeções" value={inspecoes.length} accent={palette.success} />
+            <StatChip label="Pendências" value={totalPendencias} accent={palette.warning} />
+            <StatChip label="Críticos" value={critico} accent={palette.danger} />
+          </View>
+        </Card>
+
+        <Card title="Status da malha" subtitle="Distribuição por condição operacional" accentColor={palette.success}>
+          <View style={styles.statusRow}>
+            <StatusBadge label={`${normal} normais`} tone="success" />
+            <StatusBadge label={`${atencao} em atenção`} tone="warning" />
+            <StatusBadge label={`${critico} críticos`} tone="danger" />
+          </View>
+        </Card>
+
+        <Card title="Prioridade ORION" subtitle="Trechos sugeridos para ação imediata" accentColor={palette.warning}>
+          {recommendations.length ? (
+            <View style={styles.recommendations}>
+              {recommendations.map((item, index) => (
+                <View key={item.trecho.id} style={styles.recommendationItem}>
+                  <View style={styles.recommendationTopRow}>
+                    <View style={styles.rankBadge}>
+                      <Text style={styles.rankText}>#{index + 1}</Text>
+                    </View>
+                    <StatusBadge
+                      label={`${item.score} pontos`}
+                      tone={item.trecho.status === 'Crítico' ? 'danger' : item.trecho.status === 'Atenção' ? 'warning' : 'success'}
+                    />
+                  </View>
+                  <Text style={styles.recommendationTitle}>{item.trecho.nome}</Text>
+                  <Text style={styles.recommendationMeta}>
+                    {item.trecho.rodovia} • km {item.trecho.km.toFixed(1)}
+                  </Text>
+                  <Text style={styles.recommendationReason}>{item.headline}</Text>
+                  <Text style={styles.recommendationReason}>{item.reason}</Text>
+                  <Text style={styles.recommendationAction}>{item.nextAction}</Text>
+                </View>
+              ))}
+            </View>
+          ) : (
+            <Text style={styles.activityText}>Nenhum trecho disponível para priorização.</Text>
+          )}
+        </Card>
+
+        <SectionHeader title="Acesso rápido" subtitle="Rotas principais para equipe de campo" />
+        <View style={styles.quickActions}>
+          <AppButton
+            label="Abrir trechos"
+            onPress={() => navigation.navigate('Trechos')}
+            accessibilityHint="Abre a lista de trechos monitorados."
+          />
+          <AppButton
+            label="Nova inspeção"
+            variant="secondary"
+            onPress={() => navigation.navigate('Inspecao')}
+            accessibilityHint="Abre o formulário de registro de inspeção."
+          />
+        </View>
+
+        <Card title="Última atividade" subtitle="Registro mais recente sincronizado" accentColor={palette.primary}>
+          {lastInspection ? (
+            <View style={styles.activityBlock}>
+              <Text style={styles.activityTitle}>{lastInspection.responsavel}</Text>
+              <Text style={styles.activityText}>Trecho: {lastInspection.trechoId}</Text>
+              <Text style={styles.activityText}>Risco: {lastInspection.risco}</Text>
+              <Text style={styles.activityText}>Data: {formatDateTime(lastInspection.data)}</Text>
+            </View>
+          ) : (
+            <Text style={styles.activityText}>Nenhuma inspeção registrada ainda.</Text>
+          )}
+        </Card>
+      </ScrollView>
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
+  scrollContent: {
+    gap: 16,
+    paddingBottom: 24
+  },
   hero: {
     paddingBottom: 4
   },
@@ -144,37 +212,54 @@ const styles = StyleSheet.create({
   quickActions: {
     gap: 12
   },
-  primaryAction: {
-    backgroundColor: palette.primary,
-    borderRadius: 20,
-    padding: 18
+  recommendations: {
+    gap: 12
   },
-  primaryActionTitle: {
-    color: '#F8FAFC',
-    fontSize: 16,
-    fontWeight: '900',
-    marginBottom: 6
-  },
-  primaryActionText: {
-    color: 'rgba(248, 250, 252, 0.9)',
-    lineHeight: 20
-  },
-  secondaryAction: {
-    backgroundColor: palette.surface,
-    borderRadius: 20,
-    padding: 18,
+  recommendationItem: {
+    padding: 14,
+    borderRadius: 18,
     borderWidth: 1,
-    borderColor: palette.border
+    borderColor: palette.border,
+    backgroundColor: palette.surfaceElevated,
+    gap: 6
   },
-  secondaryActionTitle: {
+  recommendationTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10
+  },
+  rankBadge: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(37, 99, 235, 0.18)',
+    borderWidth: 1,
+    borderColor: 'rgba(37, 99, 235, 0.35)'
+  },
+  rankText: {
     color: palette.text,
-    fontSize: 16,
-    fontWeight: '900',
-    marginBottom: 6
+    fontWeight: '900'
   },
-  secondaryActionText: {
+  recommendationTitle: {
+    color: palette.text,
+    fontWeight: '900',
+    fontSize: 15
+  },
+  recommendationMeta: {
     color: palette.textMuted,
-    lineHeight: 20
+    lineHeight: 18
+  },
+  recommendationReason: {
+    color: palette.textMuted,
+    lineHeight: 19
+  },
+  recommendationAction: {
+    color: palette.text,
+    fontWeight: '800',
+    marginTop: 2
   },
   activityBlock: {
     gap: 4

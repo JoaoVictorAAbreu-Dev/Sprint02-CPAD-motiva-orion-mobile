@@ -2,18 +2,24 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
   Image,
+  Keyboard,
+  KeyboardAvoidingView,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
+  TouchableWithoutFeedback,
   View
 } from 'react-native';
 import { CameraCapturedPicture, CameraView, useCameraPermissions } from 'expo-camera';
 import * as Location from 'expo-location';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 
+import { AppButton } from '../../../components/AppButton';
 import { Card } from '../../../components/Card';
+import { FormField } from '../../../components/FormField';
 import { Screen } from '../../../components/Screen';
 import { SectionHeader } from '../../../components/SectionHeader';
 import { StatusBadge } from '../../../components/StatusBadge';
@@ -29,6 +35,7 @@ export function InspecaoScreen({ route, navigation }: Props) {
   const { trechos, getTrechoById, registrarInspecao } = useAppContext();
   const [cameraPermission, requestCameraPermission] = useCameraPermissions();
   const cameraRef = useRef<CameraView>(null);
+  const submittedRef = useRef(false);
 
   const trechoSelecionado = useMemo(
     () => (route.params?.trechoId ? getTrechoById(route.params.trechoId) : trechos[0]),
@@ -46,6 +53,7 @@ export function InspecaoScreen({ route, navigation }: Props) {
   const [locationPermission, setLocationPermission] = useState<Location.LocationPermissionResponse | null>(null);
   const [coordinates, setCoordinates] = useState<{ latitude: number; longitude: number } | null>(null);
   const [capturingLocation, setCapturingLocation] = useState(false);
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (trechoSelecionado?.id) {
@@ -64,7 +72,36 @@ export function InspecaoScreen({ route, navigation }: Props) {
     })();
   }, []);
 
-  const canSubmit = trechoId && responsavel.trim() && observacao.trim() && acaoRecomendada.trim() && foto;
+  const hasChanges =
+    Boolean(responsavel.trim()) ||
+    Boolean(observacao.trim()) ||
+    Boolean(acaoRecomendada.trim()) ||
+    Boolean(foto) ||
+    Boolean(coordinates) ||
+    risco !== 'Baixo' ||
+    (route.params?.trechoId ? false : trechoId !== (trechoSelecionado?.id ?? ''));
+
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('beforeRemove', (event) => {
+      if (!hasChanges || saving || submittedRef.current) {
+        return;
+      }
+
+      event.preventDefault();
+      Alert.alert('Descartar alterações?', 'Você tem dados não salvos nesta inspeção.', [
+        { text: 'Continuar editando', style: 'cancel' },
+        {
+          text: 'Descartar',
+          style: 'destructive',
+          onPress: () => navigation.dispatch(event.data.action)
+        }
+      ]);
+    });
+
+    return unsubscribe;
+  }, [hasChanges, navigation, saving]);
+
+  const canSubmit = trechoId && responsavel.trim() && observacao.trim() && acaoRecomendada.trim() && foto && !saving;
 
   const takePhoto = async () => {
     if (!cameraReady || !cameraRef.current || capturing) return;
@@ -108,192 +145,184 @@ export function InspecaoScreen({ route, navigation }: Props) {
 
   const submit = async () => {
     if (!canSubmit) {
-      Alert.alert(
-        'Campos obrigatórios',
-        'Preencha trecho, responsável, observação, ação recomendada e tire uma foto.'
-      );
+      Alert.alert('Campos obrigatórios', 'Preencha trecho, responsável, observação, ação recomendada e tire uma foto.');
       return;
     }
 
-    await registrarInspecao({
-      trechoId,
-      responsavel: responsavel.trim(),
-      observacao: observacao.trim(),
-      risco,
-      acaoRecomendada: acaoRecomendada.trim(),
-      fotoUri: foto?.uri,
-      latitude: coordinates?.latitude,
-      longitude: coordinates?.longitude
-    });
+    try {
+      setSaving(true);
+      await registrarInspecao({
+        trechoId,
+        responsavel: responsavel.trim(),
+        observacao: observacao.trim(),
+        risco,
+        acaoRecomendada: acaoRecomendada.trim(),
+        fotoUri: foto?.uri,
+        latitude: coordinates?.latitude,
+        longitude: coordinates?.longitude
+      });
 
-    Alert.alert('Inspeção registrada', 'Registro salvo com sucesso.');
-    navigation.goBack();
+      submittedRef.current = true;
+      Alert.alert('Inspeção registrada', 'Registro salvo com sucesso.');
+      navigation.goBack();
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
     <Screen>
-      <SectionHeader
-        title="Nova inspeção"
-        subtitle="Registre a condição da vegetação, anexe evidência visual e sincronize a operação."
-      />
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.flex}>
+        <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+          <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+            <SectionHeader
+              title="Nova inspeção"
+              subtitle="Registre a condição da vegetação, anexe evidência visual e sincronize a operação."
+            />
 
-      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-        {trechoSelecionado ? (
-          <Card
-            title={trechoSelecionado.nome}
-            subtitle={`${trechoSelecionado.rodovia} • km ${trechoSelecionado.km.toFixed(1)}`}
-            eyebrow="Trecho selecionado"
-            accentColor={palette.primary}
-          >
-            <View style={styles.trechoInfo}>
-              <StatusBadge
-                label={trechoSelecionado.status}
-                tone={
-                  trechoSelecionado.status === 'Normal'
-                    ? 'success'
-                    : trechoSelecionado.status === 'Atenção'
-                      ? 'warning'
-                      : 'danger'
-                }
-              />
-              <Text style={styles.meta}>Prioridade: {trechoSelecionado.prioridade}</Text>
-              <Text style={styles.meta}>Vegetação: {trechoSelecionado.nivelVegetacao}</Text>
-            </View>
-          </Card>
-        ) : null}
-
-        <Card title="Evidência fotográfica" subtitle="Captura obrigatória para concluir a inspeção" accentColor={palette.success}>
-          {cameraPermission?.granted ? (
-            <View style={styles.cameraBlock}>
-              <View style={styles.cameraFrame}>
-                {foto ? (
-                  <Image source={{ uri: foto.uri }} style={styles.preview} />
-                ) : (
-                  <CameraView
-                    ref={cameraRef}
-                    style={styles.camera}
-                    facing="back"
-                    onCameraReady={() => setCameraReady(true)}
+            {trechoSelecionado ? (
+              <Card
+                title={trechoSelecionado.nome}
+                subtitle={`${trechoSelecionado.rodovia} • km ${trechoSelecionado.km.toFixed(1)}`}
+                eyebrow="Trecho selecionado"
+                accentColor={palette.primary}
+              >
+                <View style={styles.trechoInfo}>
+                  <StatusBadge
+                    label={trechoSelecionado.status}
+                    tone={trechoSelecionado.status === 'Normal' ? 'success' : trechoSelecionado.status === 'Atenção' ? 'warning' : 'danger'}
                   />
-                )}
+                  <Text style={styles.meta}>Prioridade: {trechoSelecionado.prioridade}</Text>
+                  <Text style={styles.meta}>Vegetação: {trechoSelecionado.nivelVegetacao}</Text>
+                </View>
+              </Card>
+            ) : null}
+
+            <Card title="Evidência fotográfica" subtitle="Captura obrigatória para concluir a inspeção" accentColor={palette.success}>
+              {cameraPermission?.granted ? (
+                <View style={styles.cameraBlock}>
+                  <View style={styles.cameraFrame}>
+                    {foto ? (
+                      <Image source={{ uri: foto.uri }} style={styles.preview} />
+                    ) : (
+                      <CameraView ref={cameraRef} style={styles.camera} facing="back" onCameraReady={() => setCameraReady(true)} />
+                    )}
+                  </View>
+
+                  <View style={styles.cameraActions}>
+                    <AppButton
+                      label={foto ? 'Tirar outra foto' : capturing ? 'Capturando...' : 'Tirar foto'}
+                      onPress={takePhoto}
+                      loading={capturing}
+                      disabled={!cameraReady}
+                      style={styles.flexButton}
+                    />
+                    {foto ? (
+                      <AppButton label="Remover" variant="secondary" onPress={() => setFoto(null)} style={styles.flexButton} />
+                    ) : null}
+                  </View>
+                </View>
+              ) : (
+                <View style={styles.permissionCard}>
+                  <Text style={styles.permissionText}>
+                    A câmera precisa de permissão para registrar a inspeção com imagem.
+                  </Text>
+                  <AppButton label="Conceder permissão" onPress={requestCameraPermission} />
+                </View>
+              )}
+            </Card>
+
+            <Card title="Geolocalização" subtitle="Captura da posição atual do ponto de inspeção" accentColor={palette.primary}>
+              <View style={styles.locationBlock}>
+                <Text style={styles.meta}>
+                  {coordinates
+                    ? `Latitude: ${coordinates.latitude.toFixed(6)} | Longitude: ${coordinates.longitude.toFixed(6)}`
+                    : 'Nenhuma coordenada registrada ainda.'}
+                </Text>
+                <Text style={styles.meta}>Permissão: {locationPermission?.granted ? 'Concedida' : 'Pendente'}</Text>
+                <AppButton
+                  label={capturingLocation ? 'Capturando localização...' : 'Capturar localização'}
+                  variant="secondary"
+                  onPress={captureLocation}
+                  loading={capturingLocation}
+                />
               </View>
+            </Card>
 
-              <View style={styles.cameraActions}>
-                <Pressable style={styles.primaryButton} onPress={takePhoto}>
-                  <Text style={styles.primaryButtonText}>{foto ? 'Tirar outra foto' : 'Tirar foto'}</Text>
-                </Pressable>
-                {foto ? (
-                  <Pressable style={styles.secondaryButton} onPress={() => setFoto(null)}>
-                    <Text style={styles.secondaryButtonText}>Remover</Text>
-                  </Pressable>
-                ) : null}
-              </View>
-            </View>
-          ) : (
-            <View style={styles.permissionCard}>
-              <Text style={styles.permissionText}>
-                A câmera precisa de permissão para registrar a inspeção com imagem.
-              </Text>
-              <Pressable style={styles.primaryButton} onPress={requestCameraPermission}>
-                <Text style={styles.primaryButtonText}>Conceder permissão</Text>
-              </Pressable>
-            </View>
-          )}
-        </Card>
+            <Card title="Dados da inspeção" subtitle="Preencha as informações de campo" accentColor={palette.primary}>
+              <FormField label="Trecho" helperText="O formulário já começa com um trecho sugerido.">
+                <TextInput
+                  value={trechoId}
+                  onChangeText={setTrechoId}
+                  placeholder="Informe o ID do trecho"
+                  placeholderTextColor={palette.textMuted}
+                  style={styles.input}
+                  autoCapitalize="none"
+                />
+              </FormField>
 
-        <Card title="Geolocalização" subtitle="Captura da posição atual do ponto de inspeção" accentColor={palette.primary}>
-          <View style={styles.locationBlock}>
-            <Text style={styles.meta}>
-              {coordinates
-                ? `Latitude: ${coordinates.latitude.toFixed(6)} | Longitude: ${coordinates.longitude.toFixed(6)}`
-                : 'Nenhuma coordenada registrada ainda.'}
-            </Text>
-            <Text style={styles.meta}>Permissão: {locationPermission?.granted ? 'Concedida' : 'Pendente'}</Text>
-            <Pressable style={styles.secondaryButton} onPress={captureLocation}>
-              <Text style={styles.secondaryButtonText}>
-                {capturingLocation ? 'Capturando localização...' : 'Capturar localização'}
-              </Text>
-            </Pressable>
-          </View>
-        </Card>
+              <FormField label="Responsável">
+                <TextInput
+                  value={responsavel}
+                  onChangeText={setResponsavel}
+                  placeholder="Nome do responsável"
+                  placeholderTextColor={palette.textMuted}
+                  style={styles.input}
+                />
+              </FormField>
 
-        <Card title="Dados da inspeção" subtitle="Preencha as informações de campo" accentColor={palette.primary}>
-          <Field label="Trecho">
-            <TextInput
-              value={trechoId}
-              onChangeText={setTrechoId}
-              placeholder="Informe o ID do trecho"
-              placeholderTextColor={palette.textMuted}
-              style={styles.input}
-              autoCapitalize="none"
-            />
-          </Field>
+              <FormField label="Observação">
+                <TextInput
+                  value={observacao}
+                  onChangeText={setObservacao}
+                  placeholder="Descreva a condição observada"
+                  placeholderTextColor={palette.textMuted}
+                  style={[styles.input, styles.multiline]}
+                  multiline
+                />
+              </FormField>
 
-          <Field label="Responsável">
-            <TextInput
-              value={responsavel}
-              onChangeText={setResponsavel}
-              placeholder="Nome do responsável"
-              placeholderTextColor={palette.textMuted}
-              style={styles.input}
-            />
-          </Field>
+              <FormField label="Risco">
+                <View style={styles.segment}>
+                  {(['Baixo', 'Médio', 'Alto'] as const).map((item) => (
+                    <Pressable
+                      key={item}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Risco ${item}`}
+                      accessibilityState={{ selected: risco === item }}
+                      style={[styles.segmentItem, risco === item && styles.segmentItemActive]}
+                      onPress={() => setRisco(item)}
+                    >
+                      <Text style={styles.segmentText}>{item}</Text>
+                    </Pressable>
+                  ))}
+                </View>
+              </FormField>
 
-          <Field label="Observação">
-            <TextInput
-              value={observacao}
-              onChangeText={setObservacao}
-              placeholder="Descreva a condição observada"
-              placeholderTextColor={palette.textMuted}
-              style={[styles.input, styles.multiline]}
-              multiline
-            />
-          </Field>
+              <FormField label="Ação recomendada">
+                <TextInput
+                  value={acaoRecomendada}
+                  onChangeText={setAcaoRecomendada}
+                  placeholder="Ex.: roçada e remoção de material"
+                  placeholderTextColor={palette.textMuted}
+                  style={[styles.input, styles.multiline]}
+                  multiline
+                />
+              </FormField>
 
-          <Field label="Risco">
-            <View style={styles.segment}>
-              {(['Baixo', 'Médio', 'Alto'] as const).map((item) => (
-                <Pressable
-                  key={item}
-                  style={[styles.segmentItem, risco === item && styles.segmentItemActive]}
-                  onPress={() => setRisco(item)}
-                >
-                  <Text style={styles.segmentText}>{item}</Text>
-                </Pressable>
-              ))}
-            </View>
-          </Field>
-
-          <Field label="Ação recomendada">
-            <TextInput
-              value={acaoRecomendada}
-              onChangeText={setAcaoRecomendada}
-              placeholder="Ex.: roçada e remoção de material"
-              placeholderTextColor={palette.textMuted}
-              style={[styles.input, styles.multiline]}
-              multiline
-            />
-          </Field>
-
-          <Pressable style={[styles.submit, !canSubmit && styles.submitDisabled]} onPress={submit}>
-            <Text style={styles.submitText}>{capturing ? 'Capturando...' : 'Salvar inspeção'}</Text>
-          </Pressable>
-        </Card>
-      </ScrollView>
+              <AppButton label={saving ? 'Salvando inspeção...' : 'Salvar inspeção'} onPress={submit} loading={saving} />
+            </Card>
+          </ScrollView>
+        </TouchableWithoutFeedback>
+      </KeyboardAvoidingView>
     </Screen>
   );
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <View style={styles.field}>
-      <Text style={styles.label}>{label}</Text>
-      {children}
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
+  flex: {
+    flex: 1
+  },
   content: {
     gap: 12,
     paddingBottom: 24
@@ -327,29 +356,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 10
   },
-  primaryButton: {
-    flex: 1,
-    backgroundColor: palette.primary,
-    borderRadius: 16,
-    paddingVertical: 13,
-    alignItems: 'center'
-  },
-  primaryButtonText: {
-    color: '#F8FAFC',
-    fontWeight: '900'
-  },
-  secondaryButton: {
-    flex: 1,
-    backgroundColor: palette.surfaceElevated,
-    borderRadius: 16,
-    paddingVertical: 13,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: palette.border
-  },
-  secondaryButtonText: {
-    color: palette.text,
-    fontWeight: '800'
+  flexButton: {
+    flex: 1
   },
   permissionCard: {
     gap: 10
@@ -360,15 +368,6 @@ const styles = StyleSheet.create({
   },
   locationBlock: {
     gap: 12
-  },
-  field: {
-    marginBottom: 14
-  },
-  label: {
-    color: palette.textMuted,
-    marginBottom: 8,
-    fontSize: 13,
-    fontWeight: '700'
   },
   input: {
     backgroundColor: palette.surfaceElevated,
@@ -403,19 +402,5 @@ const styles = StyleSheet.create({
   segmentText: {
     color: palette.text,
     fontWeight: '800'
-  },
-  submit: {
-    backgroundColor: palette.primary,
-    paddingVertical: 15,
-    borderRadius: 16,
-    alignItems: 'center',
-    marginTop: 6
-  },
-  submitDisabled: {
-    opacity: 0.6
-  },
-  submitText: {
-    color: '#F8FAFC',
-    fontWeight: '900'
   }
 });

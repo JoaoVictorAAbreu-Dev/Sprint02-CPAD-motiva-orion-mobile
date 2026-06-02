@@ -1,13 +1,16 @@
 import React, { useMemo } from 'react';
-import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import { FlatList, StyleSheet, Text, View } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 
+import { AppButton } from '../../../components/AppButton';
 import { Card } from '../../../components/Card';
+import { EmptyState } from '../../../components/EmptyState';
 import { Screen } from '../../../components/Screen';
 import { SectionHeader } from '../../../components/SectionHeader';
-import { StatusBadge } from '../../../components/StatusBadge';
 import { StatChip } from '../../../components/StatChip';
+import { StatusBadge } from '../../../components/StatusBadge';
 import { useAppContext } from '../../../context/AppContext';
+import { getOperationalRecommendations } from '../../../services/operationalPriority';
 import { RootStackParamList } from '../../../types/navigation';
 import { palette } from '../../../theme/palette';
 
@@ -50,9 +53,7 @@ export function DetalheTrechoScreen({ route, navigation }: Props) {
     return (
       <Screen>
         <Card title="Trecho não encontrado" subtitle="O trecho selecionado não existe mais na base local.">
-          <Pressable style={styles.primaryButton} onPress={() => navigation.goBack()}>
-            <Text style={styles.primaryButtonText}>Voltar</Text>
-          </Pressable>
+          <AppButton label="Voltar" onPress={() => navigation.goBack()} />
         </Card>
       </Screen>
     );
@@ -61,6 +62,10 @@ export function DetalheTrechoScreen({ route, navigation }: Props) {
   const ocorrencias = getOcorrenciasByTrechoId(trecho.id);
   const inspecoes = getInspecoesByTrechoId(trecho.id);
   const ultimaInspecao = inspecoes[0];
+  const recommendation = useMemo(
+    () => getOperationalRecommendations([trecho], ocorrencias, inspecoes)[0],
+    [inspecoes, ocorrencias, trecho]
+  );
 
   const timeline = useMemo<TimelineItem[]>(() => {
     const inspectionItems: TimelineItem[] = inspecoes.map((item) => ({
@@ -92,9 +97,7 @@ export function DetalheTrechoScreen({ route, navigation }: Props) {
         title={trecho.nome}
         subtitle={`${trecho.rodovia} • km ${trecho.km.toFixed(1)} • prioridade ${trecho.prioridade}`}
         eyebrow={trecho.id.toUpperCase()}
-        accentColor={
-          trecho.status === 'Normal' ? palette.success : trecho.status === 'Atenção' ? palette.warning : palette.danger
-        }
+        accentColor={trecho.status === 'Normal' ? palette.success : trecho.status === 'Atenção' ? palette.warning : palette.danger}
       >
         <View style={styles.heroInfo}>
           <StatusBadge label={trecho.status} tone={toneByStatus[trecho.status]} />
@@ -112,14 +115,30 @@ export function DetalheTrechoScreen({ route, navigation }: Props) {
 
       <Card title="Ações operacionais" subtitle="Próximo passo recomendado" accentColor={palette.primary}>
         <View style={styles.actionGroup}>
-          <Pressable style={styles.primaryButton} onPress={() => navigation.navigate('Inspecao', { trechoId: trecho.id })}>
-            <Text style={styles.primaryButtonText}>Iniciar inspeção</Text>
-          </Pressable>
-          <Pressable style={styles.secondaryButton} onPress={() => navigation.goBack()}>
-            <Text style={styles.secondaryButtonText}>Voltar à lista</Text>
-          </Pressable>
+          <AppButton
+            label="Iniciar inspeção"
+            onPress={() => navigation.navigate('Inspecao', { trechoId: trecho.id })}
+            accessibilityHint="Abre o formulário de inspeção com este trecho selecionado."
+          />
+          <AppButton label="Voltar à lista" variant="secondary" onPress={() => navigation.goBack()} />
         </View>
       </Card>
+
+      {recommendation ? (
+        <Card title="Prioridade ORION" subtitle="Recomendação gerada pelo motor de priorização local" accentColor={palette.warning}>
+          <View style={styles.orionBlock}>
+            <View style={styles.orionTopRow}>
+              <StatusBadge
+                label={`${recommendation.score} pontos`}
+                tone={trecho.status === 'Crítico' ? 'danger' : trecho.status === 'Atenção' ? 'warning' : 'success'}
+              />
+              <Text style={styles.orionHeadline}>{recommendation.headline}</Text>
+            </View>
+            <Text style={styles.orionText}>{recommendation.reason}</Text>
+            <Text style={styles.orionAction}>{recommendation.nextAction}</Text>
+          </View>
+        </Card>
+      ) : null}
 
       <Card title="Última inspeção" subtitle="Registro mais recente para este trecho" accentColor={palette.success}>
         {ultimaInspecao ? (
@@ -141,7 +160,7 @@ export function DetalheTrechoScreen({ route, navigation }: Props) {
           scrollEnabled={false}
           ItemSeparatorComponent={() => <View style={styles.separator} />}
           renderItem={({ item }) => (
-              <View style={styles.timelineItem}>
+            <View style={styles.timelineItem}>
               <View style={[styles.timelineDot, { backgroundColor: toneColors[item.tone] }]} />
               <View style={styles.timelineContent}>
                 <View style={styles.timelineHeader}>
@@ -153,7 +172,12 @@ export function DetalheTrechoScreen({ route, navigation }: Props) {
               </View>
             </View>
           )}
-          ListEmptyComponent={<Text style={styles.detailText}>Nenhum histórico disponível para este trecho.</Text>}
+          ListEmptyComponent={
+            <EmptyState
+              title="Sem histórico"
+              description="Nenhuma inspeção ou ocorrência encontrada para este trecho."
+            />
+          }
         />
       </Card>
     </Screen>
@@ -178,27 +202,28 @@ const styles = StyleSheet.create({
   actionGroup: {
     gap: 12
   },
-  primaryButton: {
-    backgroundColor: palette.primary,
-    borderRadius: 16,
-    paddingVertical: 14,
-    alignItems: 'center'
+  orionBlock: {
+    gap: 8
   },
-  primaryButtonText: {
-    color: '#F8FAFC',
-    fontWeight: '900'
+  orionTopRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: 8
   },
-  secondaryButton: {
-    backgroundColor: palette.surfaceElevated,
-    borderRadius: 16,
-    paddingVertical: 14,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: palette.border
-  },
-  secondaryButtonText: {
+  orionHeadline: {
     color: palette.text,
-    fontWeight: '800'
+    fontWeight: '900',
+    fontSize: 15
+  },
+  orionText: {
+    color: palette.textMuted,
+    lineHeight: 20
+  },
+  orionAction: {
+    color: palette.text,
+    fontWeight: '800',
+    lineHeight: 20
   },
   detailStack: {
     gap: 6
