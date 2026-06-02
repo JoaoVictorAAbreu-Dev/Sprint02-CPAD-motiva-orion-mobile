@@ -1,13 +1,15 @@
 export const palette = {
-  background: '#07111F',
-  surface: '#0F1B2D',
-  surfaceElevated: '#15253D',
-  primary: '#22C55E',
-  primarySoft: '#DCFCE7',
-  warning: '#F59E0B',
-  danger: '#EF4444',
-  text: '#E5EEF9',
-  textMuted: '#A7B4C6',
-  border: '#20324D',
-  card: '#102138'
+  background: '#0F172A',
+  surface: '#111C33',
+  surfaceElevated: '#162544',
+  primary: '#2563EB',
+  primarySoft: '#DBEAFE',
+  success: '#16A34A',
+  warning: '#EAB308',
+  danger: '#DC2626',
+  text: '#F8FAFC',
+  textMuted: '#A8B3C5',
+  border: '#243755',
+  card: '#101B31',
+  overlay: 'rgba(15, 23, 42, 0.92)'
 };

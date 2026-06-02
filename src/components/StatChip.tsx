@@ -3,10 +3,19 @@ import { Text, StyleSheet, View } from 'react-native';
 
 import { palette } from '../theme/palette';
 
-export function StatChip({ label, value }: { label: string; value: string | number }) {
+export function StatChip({
+  label,
+  value,
+  accent = palette.primary
+}: {
+  label: string;
+  value: string | number;
+  accent?: string;
+}) {
   return (
-    <View style={styles.chip}>
-      <Text style={styles.value}>{value}</Text>
+    <View style={[styles.chip, { borderColor: accent }]}>
+      <View style={[styles.strip, { backgroundColor: accent }]} />
+      <Text style={[styles.value, { color: accent }]}>{value}</Text>
       <Text style={styles.label}>{label}</Text>
     </View>
   );
@@ -17,16 +26,22 @@ const styles = StyleSheet.create({
     flex: 1,
     minWidth: '48%',
     backgroundColor: palette.surfaceElevated,
-    borderRadius: 14,
+    borderRadius: 18,
     padding: 14,
     borderWidth: 1,
     borderColor: palette.border,
+    marginBottom: 12,
+    overflow: 'hidden'
+  },
+  strip: {
+    height: 3,
+    width: 36,
+    borderRadius: 999,
     marginBottom: 12
   },
   value: {
-    color: palette.primary,
-    fontSize: 22,
-    fontWeight: '800',
+    fontSize: 24,
+    fontWeight: '900',
     marginBottom: 4
   },
   label: {

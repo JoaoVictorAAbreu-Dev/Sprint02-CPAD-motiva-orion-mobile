@@ -6,6 +6,14 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
+    "plugins": [
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow camera access to register inspections."
+        }
+      ]
+    ],
     "splash": {
       "backgroundColor": "#0F172A"
     },

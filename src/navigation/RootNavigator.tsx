@@ -2,15 +2,15 @@ import React from 'react';
 import { NavigationContainer, DefaultTheme } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
-import { DashboardScreen } from '../screens/DashboardScreen';
-import { InspecaoScreen } from '../screens/InspecaoScreen';
-import { TrechosScreen } from '../screens/TrechosScreen';
+import { MainTabs } from './MainTabs';
+import { DetalheTrechoScreen } from '../features/trechos/screens/DetalheTrechoScreen';
+import { InspecaoScreen } from '../features/inspecao/screens/InspecaoScreen';
 import { RootStackParamList } from '../types/navigation';
 import { palette } from '../theme/palette';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
-export function AppNavigator() {
+export function RootNavigator() {
   return (
     <NavigationContainer
       theme={{
@@ -27,16 +27,17 @@ export function AppNavigator() {
       }}
     >
       <Stack.Navigator
-        initialRouteName="Dashboard"
+        initialRouteName="MainTabs"
         screenOptions={{
           headerStyle: { backgroundColor: palette.surface },
           headerTintColor: palette.text,
-          headerTitleStyle: { fontWeight: '700' },
+          headerTitleStyle: { fontWeight: '800' },
+          headerShadowVisible: false,
           contentStyle: { backgroundColor: palette.background }
         }}
       >
-        <Stack.Screen name="Dashboard" component={DashboardScreen} options={{ title: 'Motiva ORION' }} />
-        <Stack.Screen name="Trechos" component={TrechosScreen} options={{ title: 'Trechos' }} />
+        <Stack.Screen name="MainTabs" component={MainTabs} options={{ headerShown: false }} />
+        <Stack.Screen name="DetalheTrecho" component={DetalheTrechoScreen} options={{ title: 'Detalhes do trecho' }} />
         <Stack.Screen name="Inspecao" component={InspecaoScreen} options={{ title: 'Inspeção' }} />
       </Stack.Navigator>
     </NavigationContainer>
