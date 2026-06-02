@@ -72,7 +72,7 @@ export function InspecaoScreen({ route, navigation }: Props) {
     try {
       setCapturing(true);
       const captured = await cameraRef.current.takePictureAsync({ quality: 0.7, exif: false });
-      setFoto(captured);
+      setFoto(captured ?? null);
     } catch {
       Alert.alert('Erro na câmera', 'Não foi possível capturar a foto. Tente novamente.');
     } finally {

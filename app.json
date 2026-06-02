@@ -18,7 +18,9 @@
         {
           "locationWhenInUsePermission": "Allow location access to register field inspections."
         }
-      ]
+      ],
+      "expo-font",
+      "expo-asset"
     ],
     "splash": {
       "backgroundColor": "#0F172A"
