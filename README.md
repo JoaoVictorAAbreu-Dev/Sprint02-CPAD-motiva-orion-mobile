@@ -35,6 +35,7 @@ O objetivo da aplicação é apoiar a rotina operacional das equipes de campo co
 - Visão de trechos normais, em atenção e críticos.
 - Destaque para ocorrências e última atividade registrada.
 - Acesso rápido aos fluxos principais da operação.
+- Card de Prioridade ORION com recomendação dos trechos que exigem ação primeiro.
 
 ## Trechos
 
@@ -42,6 +43,7 @@ O objetivo da aplicação é apoiar a rotina operacional das equipes de campo co
 - Status operacional por faixa.
 - Prioridade de intervenção.
 - Acesso aos detalhes do trecho e ao fluxo de inspeção.
+- Filtros por status, prioridade e rodovia para apoio à triagem em campo.
 
 ## Inspeções
 
@@ -49,6 +51,14 @@ O objetivo da aplicação é apoiar a rotina operacional das equipes de campo co
 - Campo para observações operacionais.
 - Captura de evidências fotográficas com Expo Camera.
 - Persistência local e atualização automática da interface.
+- Geolocalização do ponto de inspeção para contexto operacional.
+
+## Prioridade ORION
+
+- Motor local de priorização operacional.
+- Cálculo de score com base em status, prioridade, tempo desde a última intervenção e volume de ocorrências.
+- Destaque visual no dashboard e na tela de detalhes do trecho.
+- Apoio à decisão para orientar a equipe sobre o próximo trecho a ser atendido.
 
 ## Persistência
 
@@ -269,6 +279,8 @@ Substituir os placeholders abaixo pelas imagens reais da aplicação.
 - Dashboard
 - Mock de dados
 - Registro de inspeções
+- Prioridade ORION
+- UX corporativa com componentes reutilizáveis
 
 ## Versões Futuras
 
