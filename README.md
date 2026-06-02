@@ -256,8 +256,10 @@ Substituir os placeholders abaixo pelas imagens reais da aplicação.
 
 # Integrantes
 
-- João Victor Alves de Abreu - RM 564946
-- Luiz Henrique Barbosa Dias - RM 562399
+- João Victor Alves de Abreu - RM: 564946
+- Luiz Henrique Barbosa Dias - RM: 562399
+- Nathan Lopes Silva - RM: 563507
+- Rodrigo Kenshin Viana Matayoshi - RM: 564026
 
 ---
 
