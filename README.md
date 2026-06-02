@@ -1,5 +1,3 @@
-# Banner
-
 ## Motiva ORION Mobile
 
 **Operational Roadside Intelligence & Optimization Network**
