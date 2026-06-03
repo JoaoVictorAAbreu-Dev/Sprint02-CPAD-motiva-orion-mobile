@@ -271,12 +271,24 @@ Link: [ADICIONAR LINK DO YOUTUBE](https://www.youtube.com/watch?v=ADICIONAR-LINK
 
 # Capturas de Tela
 
-Substituir os placeholders abaixo pelas imagens reais da aplicação.
-
-- `docs/images/dashboard.png`
-- `docs/images/trechos.png`
-- `docs/images/inspecao.png`
-- `docs/images/camera.png`
+<table>
+  <tr>
+    <td align="center">
+      <img src="docs/images/dashboard.png" alt="Dashboard" width="360" />
+    </td>
+    <td align="center">
+      <img src="docs/images/trechos.png" alt="Trechos" width="360" />
+    </td>
+  </tr>
+  <tr>
+    <td align="center">
+      <img src="docs/images/inspecao.png" alt="Inspeção" width="360" />
+    </td>
+    <td align="center">
+      <img src="docs/images/camera.png" alt="Camera" width="360" />
+    </td>
+  </tr>
+</table>
 
 ---
 
