@@ -2,16 +2,26 @@ import React from 'react';
 import { useSafeAreaInsets, SafeAreaView } from 'react-native-safe-area-context';
 import { View, StyleSheet } from 'react-native';
 
+import { AppHeader } from './AppHeader';
 import { palette } from '../theme/palette';
 
-export function Screen({ children }: { children: React.ReactNode }) {
+type Props = {
+  children: React.ReactNode;
+  showBackButton?: boolean;
+  onBackPress?: () => void;
+};
+
+export function Screen({ children, showBackButton = false, onBackPress }: Props) {
   const insets = useSafeAreaInsets();
 
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.bgGlowTop} />
       <View style={styles.bgGlowBottom} />
-      <View style={[styles.content, { paddingBottom: 16 + insets.bottom }]}>{children}</View>
+      <View style={[styles.content, { paddingBottom: 16 + insets.bottom }]}>
+        <AppHeader showBackButton={showBackButton} onBackPress={onBackPress} />
+        {children}
+      </View>
     </SafeAreaView>
   );
 }

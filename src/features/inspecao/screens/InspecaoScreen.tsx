@@ -171,7 +171,7 @@ export function InspecaoScreen({ route, navigation }: Props) {
   };
 
   return (
-    <Screen>
+    <Screen showBackButton onBackPress={() => navigation.goBack()}>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.flex}>
         <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
           <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">

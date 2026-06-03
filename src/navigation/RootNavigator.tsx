@@ -29,16 +29,13 @@ export function RootNavigator() {
       <Stack.Navigator
         initialRouteName="MainTabs"
         screenOptions={{
-          headerStyle: { backgroundColor: palette.surface },
-          headerTintColor: palette.text,
-          headerTitleStyle: { fontWeight: '800' },
-          headerShadowVisible: false,
+          headerShown: false,
           contentStyle: { backgroundColor: palette.background }
         }}
       >
-        <Stack.Screen name="MainTabs" component={MainTabs} options={{ headerShown: false }} />
-        <Stack.Screen name="DetalheTrecho" component={DetalheTrechoScreen} options={{ title: 'Detalhes do trecho' }} />
-        <Stack.Screen name="Inspecao" component={InspecaoScreen} options={{ title: 'Inspeção' }} />
+        <Stack.Screen name="MainTabs" component={MainTabs} />
+        <Stack.Screen name="DetalheTrecho" component={DetalheTrechoScreen} />
+        <Stack.Screen name="Inspecao" component={InspecaoScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );

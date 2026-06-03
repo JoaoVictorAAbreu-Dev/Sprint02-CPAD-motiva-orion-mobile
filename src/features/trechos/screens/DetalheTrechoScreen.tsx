@@ -51,7 +51,7 @@ export function DetalheTrechoScreen({ route, navigation }: Props) {
 
   if (!trecho) {
     return (
-      <Screen>
+      <Screen showBackButton onBackPress={() => navigation.goBack()}>
         <Card title="Trecho não encontrado" subtitle="O trecho selecionado não existe mais na base local.">
           <AppButton label="Voltar" onPress={() => navigation.goBack()} />
         </Card>
@@ -90,7 +90,7 @@ export function DetalheTrechoScreen({ route, navigation }: Props) {
   }, [inspecoes, ocorrencias]);
 
   return (
-    <Screen>
+    <Screen showBackButton onBackPress={() => navigation.goBack()}>
       <SectionHeader title="Detalhes do trecho" subtitle="Visão operacional com indicadores, histórico e ocorrências." />
 
       <Card
