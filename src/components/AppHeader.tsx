@@ -1,10 +1,8 @@
 import React from 'react';
-import { Image, ImageSourcePropType, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 import { palette } from '../theme/palette';
-
-const logo = require('../../assets/images/logo-motiva-orion.png') as ImageSourcePropType;
 
 type Props = {
   showBackButton?: boolean;
@@ -29,8 +27,6 @@ export function AppHeader({
             onPress={onBackPress}
           />
         ) : null}
-
-        <Image source={logo} style={styles.logo} resizeMode="contain" />
 
         <View style={styles.brandBlock}>
           <Text style={styles.brandTitle}>Motiva ORION</Text>
@@ -96,10 +92,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 10,
     minWidth: 0
-  },
-  logo: {
-    width: 36,
-    height: 36
   },
   brandBlock: {
     flexShrink: 1,
