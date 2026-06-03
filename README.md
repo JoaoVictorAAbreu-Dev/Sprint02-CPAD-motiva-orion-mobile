@@ -273,6 +273,8 @@ Substituir os placeholders abaixo pelas imagens reais da aplicação.
 
 # Roadmap
 
+Roadmap técnico detalhado: [docs/roadmap-producao.md](docs/roadmap-producao.md)
+
 ## Versão Atual
 
 - Navegação
