@@ -54,4 +54,25 @@ export type AppState = {
   trechos: Trecho[];
   ocorrencias: Ocorrencia[];
   inspecoes: Inspecao[];
+  notifications: NotificationItem[];
+  settings: AppSettings;
+};
+
+export type NotificationType = 'info' | 'warning' | 'critical';
+
+export type NotificationItem = {
+  id: string;
+  title: string;
+  message: string;
+  type: NotificationType;
+  createdAt: string;
+  read: boolean;
+  targetTrechoId?: string;
+  targetInspecaoId?: string;
+};
+
+export type AppSettings = {
+  operationalAlertsEnabled: boolean;
+  confirmInspectionDiscard: boolean;
+  showUnreadBadge: boolean;
 };

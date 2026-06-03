@@ -32,7 +32,7 @@ type Props = NativeStackScreenProps<RootStackParamList, 'Inspecao'>;
 type Risco = 'Baixo' | 'Médio' | 'Alto';
 
 export function InspecaoScreen({ route, navigation }: Props) {
-  const { trechos, getTrechoById, registrarInspecao } = useAppContext();
+  const { trechos, getTrechoById, registrarInspecao, settings } = useAppContext();
   const [cameraPermission, requestCameraPermission] = useCameraPermissions();
   const cameraRef = useRef<CameraView>(null);
   const submittedRef = useRef(false);
@@ -83,7 +83,7 @@ export function InspecaoScreen({ route, navigation }: Props) {
 
   useEffect(() => {
     const unsubscribe = navigation.addListener('beforeRemove', (event) => {
-      if (!hasChanges || saving || submittedRef.current) {
+      if (!settings.confirmInspectionDiscard || !hasChanges || saving || submittedRef.current) {
         return;
       }
 
@@ -99,7 +99,7 @@ export function InspecaoScreen({ route, navigation }: Props) {
     });
 
     return unsubscribe;
-  }, [hasChanges, navigation, saving]);
+  }, [hasChanges, navigation, saving, settings.confirmInspectionDiscard]);
 
   const canSubmit = trechoId && responsavel.trim() && observacao.trim() && acaoRecomendada.trim() && foto && !saving;
 

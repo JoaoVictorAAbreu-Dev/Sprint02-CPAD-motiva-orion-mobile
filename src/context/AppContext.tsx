@@ -4,18 +4,31 @@ import { ocorrenciasMock } from '../data/ocorrenciasMock';
 import { inspecoesMock } from '../data/inspecoesMock';
 import { trechosMock } from '../data/trechosMock';
 import { readStorage, storageKeys, storageVersion, writeStorage } from '../services/storage';
-import { AppState, Inspecao, Ocorrencia, Trecho } from '../types/domain';
+import {
+  AppSettings,
+  AppState,
+  Inspecao,
+  NotificationItem,
+  Ocorrencia,
+  Trecho
+} from '../types/domain';
 
 type AppContextValue = {
   trechos: Trecho[];
   ocorrencias: Ocorrencia[];
   inspecoes: Inspecao[];
+  notifications: NotificationItem[];
+  settings: AppSettings;
   loading: boolean;
   reloadAppState: () => Promise<void>;
   registrarInspecao: (input: Omit<Inspecao, 'id' | 'data'>) => Promise<void>;
+  markNotificationAsRead: (id: string) => Promise<void>;
+  markAllNotificationsAsRead: () => Promise<void>;
+  updateSettings: (input: Partial<AppSettings>) => Promise<void>;
   getTrechoById: (id: string) => Trecho | undefined;
   getOcorrenciasByTrechoId: (trechoId: string) => Ocorrencia[];
   getInspecoesByTrechoId: (trechoId: string) => Inspecao[];
+  getUnreadNotificationCount: () => number;
 };
 
 const AppContext = createContext<AppContextValue | undefined>(undefined);
@@ -24,19 +37,64 @@ const initialState: AppState = {
   version: storageVersion,
   trechos: trechosMock,
   ocorrencias: ocorrenciasMock,
-  inspecoes: inspecoesMock
+  inspecoes: inspecoesMock,
+  notifications: [],
+  settings: {
+    operationalAlertsEnabled: true,
+    confirmInspectionDiscard: true,
+    showUnreadBadge: true
+  }
 };
 
 function mergeState(stored: AppState | null): AppState {
-  if (!stored || stored.version !== storageVersion) {
-    return initialState;
+  return {
+    version: storageVersion,
+    trechos: stored?.trechos?.length ? stored.trechos : trechosMock,
+    ocorrencias: stored?.ocorrencias?.length ? stored.ocorrencias : ocorrenciasMock,
+    inspecoes: stored?.inspecoes?.length ? stored.inspecoes : inspecoesMock,
+    notifications: stored?.notifications !== undefined ? stored.notifications : createInitialNotifications(),
+    settings: stored?.settings ?? initialState.settings
+  };
+}
+
+function createInitialNotifications(): NotificationItem[] {
+  const now = new Date().toISOString();
+  const criticalTrechos = trechosMock.filter((trecho) => trecho.status !== 'Normal').slice(0, 4);
+
+  return criticalTrechos.map((trecho, index) => ({
+    id: `seed-${trecho.id}-${index}`,
+    title: trecho.status === 'Crítico' ? 'Trecho crítico priorizado' : 'Trecho em atenção',
+    message: `${trecho.rodovia} km ${trecho.km.toFixed(1)} requer acompanhamento operacional.`,
+    type: trecho.status === 'Crítico' ? 'critical' : 'warning',
+    createdAt: now,
+    read: false,
+    targetTrechoId: trecho.id
+  }));
+}
+
+function createInspectionNotification(trecho: Trecho, inspecao: Inspecao): NotificationItem | null {
+  if (inspecao.risco === 'Baixo') {
+    return {
+      id: `notif-${inspecao.id}`,
+      title: 'Inspeção registrada',
+      message: `${trecho.nome} foi inspecionado por ${inspecao.responsavel}.`,
+      type: 'info',
+      createdAt: inspecao.data,
+      read: false,
+      targetTrechoId: trecho.id,
+      targetInspecaoId: inspecao.id
+    };
   }
 
   return {
-    version: storageVersion,
-    trechos: stored.trechos?.length ? stored.trechos : trechosMock,
-    ocorrencias: stored.ocorrencias?.length ? stored.ocorrencias : ocorrenciasMock,
-    inspecoes: stored.inspecoes?.length ? stored.inspecoes : inspecoesMock
+    id: `notif-${inspecao.id}`,
+    title: inspecao.risco === 'Alto' ? 'Alerta crítico de vegetação' : 'Trecho em atenção',
+    message: `${trecho.rodovia} km ${trecho.km.toFixed(1)} demanda resposta operacional.`,
+    type: inspecao.risco === 'Alto' ? 'critical' : 'warning',
+    createdAt: inspecao.data,
+    read: false,
+    targetTrechoId: trecho.id,
+    targetInspecaoId: inspecao.id
   };
 }
 
@@ -67,6 +125,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [trechos, setTrechos] = useState<Trecho[]>(trechosMock);
   const [ocorrencias, setOcorrencias] = useState<Ocorrencia[]>(ocorrenciasMock);
   const [inspecoes, setInspecoes] = useState<Inspecao[]>(inspecoesMock);
+  const [notifications, setNotifications] = useState<NotificationItem[]>(createInitialNotifications());
+  const [settings, setSettings] = useState<AppSettings>(initialState.settings);
   const [loading, setLoading] = useState(true);
   const snapshotRef = useRef<AppState>(initialState);
 
@@ -75,6 +135,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setTrechos(nextState.trechos);
     setOcorrencias(nextState.ocorrencias);
     setInspecoes(nextState.inspecoes);
+    setNotifications(nextState.notifications);
+    setSettings(nextState.settings);
   }, []);
 
   const reloadAppState = useCallback(async () => {
@@ -119,12 +181,57 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const updatedTrechos = snapshotRef.current.trechos.map((trecho) =>
       trecho.id === input.trechoId ? deriveTrechoAfterInspection(trecho, novaInspecao) : trecho
     );
+    const trechoAtualizado = updatedTrechos.find((trecho) => trecho.id === input.trechoId);
+    const generatedNotification =
+      snapshotRef.current.settings.operationalAlertsEnabled && trechoAtualizado
+        ? createInspectionNotification(trechoAtualizado, novaInspecao)
+        : null;
+    const updatedNotifications = generatedNotification
+      ? [generatedNotification, ...snapshotRef.current.notifications]
+      : snapshotRef.current.notifications;
 
     await persistState({
       version: storageVersion,
       trechos: updatedTrechos,
       ocorrencias: snapshotRef.current.ocorrencias,
-      inspecoes: updatedInspecoes
+      inspecoes: updatedInspecoes,
+      notifications: updatedNotifications,
+      settings: snapshotRef.current.settings
+    });
+  };
+
+  const markNotificationAsRead = async (id: string) => {
+    const updatedNotifications = snapshotRef.current.notifications.map((notification) =>
+      notification.id === id ? { ...notification, read: true } : notification
+    );
+
+    await persistState({
+      ...snapshotRef.current,
+      notifications: updatedNotifications
+    });
+  };
+
+  const markAllNotificationsAsRead = async () => {
+    const updatedNotifications = snapshotRef.current.notifications.map((notification) => ({
+      ...notification,
+      read: true
+    }));
+
+    await persistState({
+      ...snapshotRef.current,
+      notifications: updatedNotifications
+    });
+  };
+
+  const updateSettings = async (input: Partial<AppSettings>) => {
+    const nextSettings = {
+      ...snapshotRef.current.settings,
+      ...input
+    };
+
+    await persistState({
+      ...snapshotRef.current,
+      settings: nextSettings
     });
   };
 
@@ -133,14 +240,20 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       trechos,
       ocorrencias,
       inspecoes,
+      notifications,
+      settings,
       loading,
       reloadAppState,
       registrarInspecao,
+      markNotificationAsRead,
+      markAllNotificationsAsRead,
+      updateSettings,
       getTrechoById: (id) => trechos.find((trecho) => trecho.id === id),
       getOcorrenciasByTrechoId: (trechoId) => ocorrencias.filter((ocorrencia) => ocorrencia.trechoId === trechoId),
-      getInspecoesByTrechoId: (trechoId) => inspecoes.filter((inspecao) => inspecao.trechoId === trechoId)
+      getInspecoesByTrechoId: (trechoId) => inspecoes.filter((inspecao) => inspecao.trechoId === trechoId),
+      getUnreadNotificationCount: () => notifications.filter((notification) => !notification.read).length
     }),
-    [inspecoes, loading, ocorrencias, reloadAppState, trechos]
+    [inspecoes, loading, notifications, ocorrencias, reloadAppState, settings, trechos]
   );
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

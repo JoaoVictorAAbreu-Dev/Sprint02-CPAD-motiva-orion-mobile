@@ -2,6 +2,8 @@ import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
+import { useAppContext } from '../context/AppContext';
+import { navigate } from '../navigation/navigationRef';
 import { palette } from '../theme/palette';
 
 type Props = {
@@ -17,6 +19,9 @@ export function AppHeader({
   onPressNotifications,
   onPressProfile
 }: Props) {
+  const { getUnreadNotificationCount, settings } = useAppContext();
+  const unreadCount = getUnreadNotificationCount();
+
   return (
     <View style={styles.container}>
       <View style={styles.leftGroup}>
@@ -35,15 +40,16 @@ export function AppHeader({
       </View>
 
       <View style={styles.rightGroup}>
-        <IconButton
+        <BadgeButton
           icon="notifications-outline"
           accessibilityLabel="Notificações"
-          onPress={onPressNotifications}
+          badgeCount={settings.showUnreadBadge ? unreadCount : 0}
+          onPress={onPressNotifications ?? (() => navigate('Notifications'))}
         />
         <IconButton
           icon="settings-outline"
           accessibilityLabel="Configurações ou perfil"
-          onPress={onPressProfile}
+          onPress={onPressProfile ?? (() => navigate('Settings'))}
         />
       </View>
     </View>
@@ -67,6 +73,34 @@ function IconButton({
       style={({ pressed }) => [styles.iconButton, pressed ? styles.iconButtonPressed : null]}
     >
       <Ionicons name={icon} size={18} color={palette.text} />
+    </Pressable>
+  );
+}
+
+function BadgeButton({
+  icon,
+  accessibilityLabel,
+  badgeCount,
+  onPress
+}: {
+  icon: keyof typeof Ionicons.glyphMap;
+  accessibilityLabel: string;
+  badgeCount: number;
+  onPress?: () => void;
+}) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel}
+      onPress={onPress}
+      style={({ pressed }) => [styles.iconButton, pressed ? styles.iconButtonPressed : null]}
+    >
+      <Ionicons name={icon} size={18} color={palette.text} />
+      {badgeCount > 0 ? (
+        <View style={styles.badge}>
+          <Text style={styles.badgeText}>{badgeCount > 9 ? '9+' : badgeCount}</Text>
+        </View>
+      ) : null}
     </Pressable>
   );
 }
@@ -125,5 +159,22 @@ const styles = StyleSheet.create({
   iconButtonPressed: {
     opacity: 0.85,
     transform: [{ scale: 0.98 }]
+  },
+  badge: {
+    position: 'absolute',
+    top: -4,
+    right: -4,
+    minWidth: 16,
+    height: 16,
+    borderRadius: 8,
+    paddingHorizontal: 4,
+    backgroundColor: palette.danger,
+    alignItems: 'center',
+    justifyContent: 'center'
+  },
+  badgeText: {
+    color: '#F8FAFC',
+    fontSize: 10,
+    fontWeight: '900'
   }
 });
