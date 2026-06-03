@@ -53,6 +53,20 @@ O objetivo da aplicação é apoiar a rotina operacional das equipes de campo co
 - Persistência local e atualização automática da interface.
 - Geolocalização do ponto de inspeção para contexto operacional.
 
+## Cabeçalho corporativo
+
+- Componente reutilizável `AppHeader` aplicado às telas do aplicativo.
+- Nome do produto e subtítulo institucional em layout compacto.
+- Ações de notificações e configurações no canto superior direito.
+- Badge de notificações não lidas com persistência local.
+
+## Notificações e Configurações
+
+- Tela de notificações com alertas operacionais e navegação para trechos relacionados.
+- Marcações individuais ou em lote como lidas.
+- Tela de configurações com preferências persistidas localmente.
+- Controle de alertas operacionais, confirmação de descarte e badge no header.
+
 ## Prioridade ORION
 
 - Motor local de priorização operacional.
@@ -111,7 +125,11 @@ src/
 ├── features/
 │   ├── dashboard/
 │   │   └── screens/
+│   ├── notifications/
+│   │   └── screens/
 │   ├── inspecao/
+│   │   └── screens/
+│   ├── settings/
 │   │   └── screens/
 │   └── trechos/
 │       └── screens/
@@ -283,6 +301,9 @@ Roadmap técnico detalhado: [docs/roadmap-producao.md](docs/roadmap-producao.md)
 - Registro de inspeções
 - Prioridade ORION
 - UX corporativa com componentes reutilizáveis
+- Cabeçalho corporativo
+- Notificações
+- Configurações persistidas
 
 ## Versões Futuras
 
